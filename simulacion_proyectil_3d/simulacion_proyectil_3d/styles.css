@@ -1,0 +1,245 @@
+/* ==========================================================================
+   CUADERNO DE LABORATORIO DE FÍSICA COMPUTACIONAL - ESTILO EDITORIAL CÁLIDO
+   Diseño Humano en Papel Marfil, Terracota y Verde Bosque + Entorno Diurno 3D
+   ========================================================================== */
+
+:root {
+  --paper-bg: rgba(251, 248, 243, 0.94);
+  --paper-solid: #fbf8f3;
+  --paper-muted: #f2ece1;
+  --paper-border: #d8cebe;
+  --ink-main: #231f1c;
+  --ink-muted: #5c5349;
+  --accent-terracotta: #b84a27;
+  --accent-terracotta-light: #f9ebe5;
+  --accent-forest: #235347;
+  --accent-forest-light: #e6f0ec;
+  --accent-ochre: #b47b1c;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #dceefb;
+  color: var(--ink-main);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+
+.serif-title {
+  font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
+}
+
+#canvas-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Controles Flotantes de Zoom Táctil */
+.zoom-pill {
+  background: var(--paper-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--paper-border);
+  box-shadow: 0 6px 20px rgba(35, 31, 28, 0.16);
+}
+
+.zoom-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 0.65rem;
+  background: var(--paper-muted);
+  border: 1px solid var(--paper-border);
+  color: var(--ink-main);
+  font-weight: 800;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.12s ease;
+}
+
+.zoom-btn:hover {
+  background: #e7dfd1;
+}
+
+.zoom-btn:active {
+  background: var(--accent-terracotta);
+  color: #ffffff;
+  transform: scale(0.93);
+}
+
+/* Optimización Específica para Móvil Horizontal (Landscape) */
+@media (max-height: 540px) {
+  header.top-bar-responsive {
+    padding: 0.25rem 0.5rem !important;
+    gap: 0.25rem !important;
+  }
+  header.top-bar-responsive .lab-card {
+    padding: 0.25rem 0.5rem !important;
+    border-radius: 0.65rem !important;
+  }
+  header.top-bar-responsive h1 {
+    font-size: 0.75rem !important;
+  }
+  #left-panel, #right-panel {
+    top: 3.1rem !important;
+    width: 15.5rem !important;
+  }
+  #left-panel > .lab-card, #right-panel > .lab-card {
+    padding: 0.35rem 0.6rem !important;
+    max-height: calc(100vh - 6.4rem) !important;
+  }
+  #bottom-dock-wrapper {
+    bottom: 0.25rem !important;
+    width: 98vw !important;
+  }
+  #bottom-dock-wrapper > .lab-card {
+    padding: 0.3rem 0.65rem !important;
+    gap: 0.4rem !important;
+    border-radius: 0.85rem !important;
+  }
+  #zoom-dock {
+    right: 0.4rem !important;
+    padding: 0.3rem !important;
+    gap: 0.25rem !important;
+  }
+  .zoom-btn {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 1rem !important;
+  }
+}
+
+#canvas-container:active {
+  cursor: grabbing;
+}
+
+/* Tarjetas tipo Cuaderno de Laboratorio en Papel Marfil */
+.lab-card {
+  background: var(--paper-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--paper-border);
+  box-shadow: 0 8px 24px -4px rgba(35, 31, 28, 0.14), 0 2px 6px rgba(35, 31, 28, 0.08);
+  color: var(--ink-main);
+}
+
+/* Controles Deslizantes Analógicos Cálidos */
+input[type="range"].sim-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #dfd6c7;
+  border: 1px solid #c9beac;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"].sim-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-terracotta);
+  border: 2px solid #fbf8f3;
+  box-shadow: 0 2px 5px rgba(35, 31, 28, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+input[type="range"].sim-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+  background: #9a391b;
+}
+
+/* Barra de desplazamiento discreta */
+.custom-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #c5b9a5;
+  border-radius: 999px;
+}
+
+/* Tipografía de Datos de Laboratorio */
+.mono-val {
+  font-family: 'Courier New', Courier, ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* Botones de Cámara, Pestañas y Presets en Estilo Editorial */
+.cam-btn, .tab-btn, .gravity-preset, .speed-btn {
+  background: var(--paper-muted);
+  border: 1px solid var(--paper-border);
+  color: var(--ink-muted);
+  transition: all 0.15s ease;
+}
+
+.cam-btn:hover, .tab-btn:hover, .gravity-preset:hover, .speed-btn:hover {
+  background: #e7dfd1;
+  color: var(--ink-main);
+}
+
+.cam-btn.active, .tab-btn.active, .gravity-preset.active, .speed-btn.active {
+  background: var(--accent-forest);
+  border-color: var(--accent-forest);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(35, 83, 71, 0.28);
+}
+
+/* Botón Principal de Disparo en Terracota */
+.btn-launch-primary {
+  background: var(--accent-terracotta);
+  color: #ffffff;
+  border: 1px solid #96381b;
+  box-shadow: 0 4px 12px rgba(184, 74, 39, 0.32);
+  transition: all 0.15s ease;
+}
+
+.btn-launch-primary:hover {
+  background: #a13d1e;
+}
+
+/* Indicador de Vector */
+.vec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Ficha de Ecuaciones con Borde Terracota */
+.formula-card {
+  background: var(--paper-muted);
+  border-left: 3px solid var(--accent-terracotta);
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.4rem;
+  color: var(--ink-main);
+}

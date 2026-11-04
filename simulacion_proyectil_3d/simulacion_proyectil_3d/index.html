@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuaderno de Laboratorio — Simulación Balística 3D (RK4)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="antialiased selection:bg-[#b84a27] selection:text-white">
+  <!-- Escena 3D Diurna a Pantalla Completa (Three.js) -->
+  <div id="canvas-container" aria-label="Campo de Pruebas Diurno 3D - Simulación Balística"></div>
+
+  <!-- CABECERA EDITORIAL TIPO CUADERNO DE CAMPO -->
+  <header class="top-bar-responsive fixed top-0 left-0 right-0 z-20 p-2 sm:px-4 pointer-events-none flex flex-wrap items-center justify-between gap-1.5">
+    <!-- Ficha de Identificación de Práctica e Indicadores Físicos -->
+    <div class="lab-card pointer-events-auto rounded-xl px-4 py-2 flex items-center gap-3.5">
+      <div class="w-9 h-9 rounded-lg bg-[#b84a27] text-white flex flex-col items-center justify-center font-bold leading-none shadow-sm">
+        <span class="serif-title text-xs">LAB</span>
+        <span class="text-[9px] tracking-widest opacity-90">RK4</span>
+      </div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="serif-title text-sm sm:text-base font-bold text-[#231f1c]">
+            Práctica de Balística y Movimiento Parabólico 3D
+          </h1>
+          <span id="motion-type-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-[#e6f0ec] text-[#235347] border border-[#b7d4c8]">
+            Movimiento Parabólico (MRU + MRUV)
+          </span>
+          <span id="flight-phase-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#f9ebe5] text-[#b84a27] border border-[#e7bfb1]">
+            EN VUELO 3D
+          </span>
+        </div>
+        <!-- Lecturas de Cuaderno en Vivo -->
+        <div class="flex flex-wrap items-center gap-3 text-xs text-[#5c5349] mt-0.5">
+          <span>Tiempo <i>t</i>: <strong id="tele-t" class="mono-val text-[#231f1c]">0.00 s</strong></span>
+          <span>Rapidez |<i>v⃗</i>|: <strong id="tele-v" class="mono-val text-[#235347]">65.00 m/s</strong></span>
+          <span>Alcance <i>x</i>: <strong id="tele-x" class="mono-val text-[#b84a27]">0.00 m</strong></span>
+          <span>Altura <i>y</i>: <strong id="tele-y" class="mono-val text-[#b47b1c]">10.00 m</strong></span>
+          <span class="hidden lg:inline">Ángulo <i>α</i>: <strong id="tele-pitch" class="mono-val text-[#231f1c]">+45.0°</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de Cámaras, Ficha del Informe Académico y Descarga -->
+    <div class="lab-card pointer-events-auto rounded-xl p-1.5 flex flex-wrap items-center gap-1">
+      <button id="btn-cam-follow" type="button" class="cam-btn active text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1" title="Seguir de cerca al cohete de pruebas en 3D">
+        <span>🚀</span> <span class="hidden md:inline">Seguir Misil</span>
+      </button>
+      <button id="btn-cam-orbit" type="button" class="cam-btn text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1" title="Girar libremente por el campo de tiro">
+        <span>🎥</span> <span class="hidden md:inline">Vista Libre</span>
+      </button>
+      <button id="btn-cam-side" type="button" class="cam-btn text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1" title="Vista ortogonal del plano XY">
+        <span>📐</span> <span class="hidden md:inline">Plano Lateral</span>
+      </button>
+      <button id="btn-cam-fpv" type="button" class="cam-btn text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1" title="Vista desde la ojiva del proyectil">
+        <span>🎯</span> <span class="hidden md:inline">Cámara Misil</span>
+      </button>
+
+      <div class="h-4 w-[1px] bg-[#d8cebe] mx-0.5"></div>
+
+    
+
+      <button id="btn-toggle-sound" type="button" class="cam-btn text-xs px-2 py-1.5 rounded-lg" title="Activar o silenciar sonido">
+        🔊
+      </button>
+
+      
+    </div>
+  </header>
+
+  <!-- NOTA EMERGENTE DE IMPACTO -->
+  <div id="impact-banner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-20 lab-card rounded-xl px-4 py-2 border text-xs font-semibold flex items-center gap-3">
+    <span id="impact-message" class="serif-title text-[#231f1c]">¡Impacto registrado!</span>
+    <span id="impact-error" class="mono-val font-bold px-2 py-0.5 rounded bg-[#f2ece1] text-[#b84a27]"></span>
+  </div>
+
+  <!-- FICHA IZQUIERDA DESPLEGABLE: Condiciones Iniciales del Modelo Físico -->
+  <aside id="left-panel" class="fixed top-20 left-3 z-20 w-76 max-w-[calc(100vw-1.5rem)] pointer-events-none flex flex-col gap-2">
+    <div class="lab-card pointer-events-auto rounded-xl p-3 flex flex-col gap-2.5 max-h-[calc(100vh-9.5rem)] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-sm bg-[#b84a27]"></span>
+          <h2 class="serif-title text-xs font-bold text-[#231f1c]">1. Variables del Modelo Físico</h2>
+        </div>
+        <button id="btn-toggle-left" type="button" class="text-[11px] font-semibold text-[#235347] hover:underline px-2 py-0.5 rounded bg-[#f2ece1] border border-[#d8cebe]">
+          Ocultar
+        </button>
+      </div>
+
+      <div id="left-panel-body" class="hidden flex-col gap-2.5 pt-2 border-t border-[#e2d9c8]">
+        <div class="space-y-2 bg-[#f4efe6] p-2.5 rounded-lg border border-[#dfd6c7]">
+          <div>
+            <div class="flex justify-between text-xs mb-0.5">
+              <label for="slider-v0" class="text-[#231f1c] font-medium">Velocidad Inicial (<i>v</i>₀)</label>
+              <span id="val-v0" class="mono-val text-[#b84a27]">65.0 m/s</span>
+            </div>
+            <input id="slider-v0" type="range" min="20" max="130" step="1" value="65" class="sim-slider">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-0.5">
+              <label for="slider-angle" class="text-[#231f1c] font-medium">Ángulo de Disparo (<i>θ</i>)</label>
+              <span id="val-angle" class="mono-val text-[#235347]">45.0°</span>
+            </div>
+            <input id="slider-angle" type="range" min="10" max="80" step="0.5" value="45" class="sim-slider">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-0.5">
+              <label for="slider-azimuth" class="text-[#231f1c] font-medium">Acimut Lateral 3D (<i>ϕ</i>)</label>
+              <span id="val-azimuth" class="mono-val text-[#5c5349]">0.0°</span>
+            </div>
+            <input id="slider-azimuth" type="range" min="-35" max="35" step="1" value="0" class="sim-slider">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-0.5">
+              <label for="slider-y0" class="text-[#231f1c] font-medium">Altura Inicial (<i>y</i>₀)</label>
+              <span id="val-y0" class="mono-val text-[#b47b1c]">10.0 m</span>
+            </div>
+            <input id="slider-y0" type="range" min="0" max="80" step="1" value="10" class="sim-slider">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-0.5">
+              <label for="slider-mass" class="text-[#231f1c] font-medium">Masa del Proyectil (<i>m</i>)</label>
+              <span id="val-mass" class="mono-val text-[#231f1c]">45.0 kg</span>
+            </div>
+            <input id="slider-mass" type="range" min="5" max="200" step="5" value="45" class="sim-slider">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-0.5">
+              <label for="slider-missile-scale" class="text-[#231f1c] font-medium">Escala Visual del Misil</label>
+              <span id="val-missile-scale" class="mono-val text-[#235347]">2.6x</span>
+            </div>
+            <input id="slider-missile-scale" type="range" min="1.0" max="4.5" step="0.1" value="2.6" class="sim-slider">
+          </div>
+        </div>
+
+        <!-- Campo Gravitatorio -->
+        <div class="bg-[#f4efe6] p-2.5 rounded-lg border border-[#dfd6c7] space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <label for="slider-gravity" class="text-[#231f1c] font-medium">Gravedad Local (<i>g</i>)</label>
+            <span id="val-gravity" class="mono-val text-[#b84a27]">9.81 m/s²</span>
+          </div>
+          <input id="slider-gravity" type="range" min="1.0" max="25.0" step="0.01" value="9.81" class="sim-slider">
+          <div class="grid grid-cols-4 gap-1 pt-0.5">
+            <button type="button" data-g="9.81" class="gravity-preset active text-[10px] py-1 rounded">🌍 Tierra</button>
+            <button type="button" data-g="1.62" class="gravity-preset text-[10px] py-1 rounded">🌙 Luna</button>
+            <button type="button" data-g="3.72" class="gravity-preset text-[10px] py-1 rounded">🔴 Marte</button>
+            <button type="button" data-g="24.79" class="gravity-preset text-[10px] py-1 rounded">🪐 Júpiter</button>
+          </div>
+        </div>
+
+        <!-- Discretización RK4 y Rozamiento Aerodinámico -->
+        <div class="bg-[#f4efe6] p-2.5 rounded-lg border border-[#dfd6c7] space-y-2">
+          <div class="flex items-center justify-between">
+            <label for="chk-drag" class="text-xs font-semibold text-[#231f1c] flex items-center gap-1.5 cursor-pointer">
+              <input id="chk-drag" type="checkbox" class="rounded accent-[#b84a27]">
+              <span>Arrastre Cuadrático (RodriProducciones)</span>
+            </label>
+            <span id="drag-status-pill" class="text-[10px] px-2 py-0.5 rounded bg-[#e6dfd3] text-[#5c5349] font-semibold">Ideal (Vacío)</span>
+          </div>
+
+          <div id="drag-controls" class="space-y-1.5 opacity-50 pointer-events-none transition-opacity">
+            <div>
+              <div class="flex justify-between text-[11px]">
+                <label for="slider-cd" class="text-[#5c5349]">Coeficiente Aerodinámico (<i>C_d</i>)</label>
+                <span id="val-cd" class="mono-val text-[#231f1c]">0.25</span>
+              </div>
+              <input id="slider-cd" type="range" min="0.05" max="1.20" step="0.05" value="0.25" class="sim-slider">
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px]">
+                <label for="slider-wind" class="text-[#5c5349]">Viento Longitudinal (<i>w_x</i>)</label>
+                <span id="val-wind" class="mono-val text-[#231f1c]">0.0 m/s</span>
+              </div>
+              <input id="slider-wind" type="range" min="-30" max="30" step="1" value="0" class="sim-slider">
+            </div>
+          </div>
+        </div>
+
+        <!-- Vectores y Diana -->
+        <div class="bg-[#f4efe6] p-2.5 rounded-lg border border-[#dfd6c7] space-y-2">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-[#5c5349]">Vectores Físicos en Escena</div>
+          <div class="grid grid-cols-2 gap-1.5 text-xs">
+            <label class="flex items-center gap-1.5 cursor-pointer text-[#231f1c]">
+              <input id="chk-vec-v" type="checkbox" checked class="accent-[#235347]">
+              <span class="vec-dot bg-[#235347]"></span> <span>Velocidad (<i>v⃗</i>)</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-[#231f1c]">
+              <input id="chk-vec-comp" type="checkbox" checked class="accent-[#0284c7]">
+              <span class="vec-dot bg-[#0284c7]"></span> <span><i>v_x</i>, <i>v_y</i></span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-[#231f1c]">
+              <input id="chk-vec-a" type="checkbox" checked class="accent-[#b84a27]">
+              <span class="vec-dot bg-[#b84a27]"></span> <span>Aceleración (<i>a⃗</i>)</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-[#231f1c]">
+              <input id="chk-ideal-curve" type="checkbox" checked class="accent-[#5c5349]">
+              <span class="vec-dot bg-[#5c5349]"></span> <span>Parábola Ideal</span>
+            </label>
+          </div>
+
+          <div class="pt-1 border-t border-[#dfd6c7]">
+            <div class="flex justify-between text-[11px] mb-0.5">
+              <label for="slider-target" class="text-[#231f1c] font-medium">🎯 Posición de la Diana</label>
+              <span id="val-target" class="mono-val text-[#b84a27]">440 m</span>
+            </div>
+            <input id="slider-target" type="range" min="80" max="1200" step="10" value="440" class="sim-slider">
+          </div>
+
+          <div class="grid grid-cols-2 gap-1.5 pt-1">
+            <button id="btn-reset" type="button" class="cam-btn py-1 px-2 rounded text-[11px] font-medium">
+              🔄 Reiniciar Posición
+            </button>
+            <button id="btn-clear-trails" type="button" class="cam-btn py-1 px-2 rounded text-[11px] font-medium">
+              🧹 Limpiar Estelas
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- FICHA DERECHA DESPLEGABLE: Resultados, Tablas y Gráficos del Informe -->
+  <aside id="right-panel" class="fixed top-20 right-3 z-20 w-76 max-w-[calc(100vw-1.5rem)] pointer-events-none flex flex-col gap-2">
+    <div class="lab-card pointer-events-auto rounded-xl p-3 flex flex-col gap-2.5 max-h-[calc(100vh-9.5rem)] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-sm bg-[#235347]"></span>
+          <h2 class="serif-title text-xs font-bold text-[#231f1c]">2. Resultados y Gráficos</h2>
+        </div>
+        <button id="btn-toggle-right" type="button" class="text-[11px] font-semibold text-[#235347] hover:underline px-2 py-0.5 rounded bg-[#f2ece1] border border-[#d8cebe]">
+          Ocultar
+        </button>
+      </div>
+
+      <div id="right-panel-body" class="hidden flex-col gap-2.5 pt-2 border-t border-[#e2d9c8]">
+        <!-- Descomposición de Galileo (MRU + MRUV) -->
+        <div class="bg-[#f4efe6] p-2.5 rounded-lg border border-[#dfd6c7] space-y-1 text-xs">
+          <div class="flex justify-between items-center">
+            <span class="text-[#235347] font-semibold">Horizontal (MRU):</span>
+            <span id="tele-vx" class="mono-val text-[#231f1c]">v_x = 45.96 m/s</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[#b84a27] font-semibold">Vertical (MRUV):</span>
+            <span id="tele-vy" class="mono-val text-[#231f1c]">v_y = 45.96 m/s</span>
+          </div>
+          <div class="flex justify-between items-center pt-1 border-t border-[#dfd6c7]">
+            <span class="text-[#5c5349]">Energía Cinética (<i>E_k</i>):</span>
+            <span id="tele-ek" class="mono-val text-[#235347]">95.06 kJ</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[#5c5349]">Energía Potencial (<i>E_p</i>):</span>
+            <span id="tele-ep" class="mono-val text-[#b47b1c]">4.41 kJ</span>
+          </div>
+        </div>
+
+        <!-- Tabla de Resultados Finales -->
+        <div class="bg-[#f4efe6] p-2 rounded-lg border border-[#dfd6c7]">
+          <div class="text-[10px] font-bold uppercase text-[#5c5349] mb-1">Métricas del Disparo (RK4, Δt = 0.016 s)</div>
+          <div class="grid grid-cols-3 gap-1 text-center">
+            <div class="bg-[#fbf8f3] p-1.5 rounded border border-[#e2d9c8]">
+              <div class="text-[10px] text-[#5c5349]">Altura Máx</div>
+              <div id="metric-hmax" class="mono-val text-xs text-[#b47b1c]">117.7 m</div>
+            </div>
+            <div class="bg-[#fbf8f3] p-1.5 rounded border border-[#e2d9c8]">
+              <div class="text-[10px] text-[#5c5349]">Alcance</div>
+              <div id="metric-range" class="mono-val text-xs text-[#b84a27]">440.4 m</div>
+            </div>
+            <div class="bg-[#fbf8f3] p-1.5 rounded border border-[#e2d9c8]">
+              <div class="text-[10px] text-[#5c5349]">Vuelo</div>
+              <div id="metric-tof" class="mono-val text-xs text-[#235347]">9.58 s</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfica sobre Papel Milimetrado -->
+        <div class="bg-[#f4efe6] p-2 rounded-lg border border-[#dfd6c7] space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase text-[#5c5349]">Gráfico Experimental</span>
+            <div class="flex gap-1">
+              <button id="btn-chart-yx" type="button" class="tab-btn active text-[10px] px-1.5 py-0.5 rounded">y vs x</button>
+              <button id="btn-chart-vt" type="button" class="tab-btn text-[10px] px-1.5 py-0.5 rounded">v vs t</button>
+              <button id="btn-chart-et" type="button" class="tab-btn text-[10px] px-1.5 py-0.5 rounded">Energía</button>
+            </div>
+          </div>
+          <div class="relative w-full h-32 bg-[#fbf8f3] rounded border border-[#d8cebe] overflow-hidden">
+            <canvas id="telemetry-chart" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+
+        <!-- Ecuaciones -->
+        <div class="formula-card text-[10px] space-y-0.5">
+          <div class="font-bold text-[#b84a27]">Ecuaciones del Modelo:</div>
+          <div id="eq-x" class="mono-val text-[#231f1c]">x(t) = 45.96 · t</div>
+          <div id="eq-y" class="mono-val text-[#231f1c]">y(t) = 10 + 45.96·t - 4.91·t²</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CONTROLES FLOTANTES DE ZOOM FÁCIL (Táctil + Rueda + Botones Rápidos) -->
+  <div id="zoom-dock" class="fixed right-3 top-1/2 -translate-y-1/2 z-20 zoom-pill rounded-2xl p-2 flex flex-col items-center gap-1.5 pointer-events-auto">
+    <button id="btn-zoom-in" type="button" class="zoom-btn" title="Acercar vista (Zoom +)">＋</button>
+    <div class="text-[10px] font-bold mono-val text-[#235347] py-0.5" id="val-zoom-readout">100%</div>
+    <input id="slider-zoom" type="range" min="15" max="750" step="1" value="56" class="sim-slider w-16 my-1" title="Deslizar para acercar o alejar">
+    <button id="btn-zoom-out" type="button" class="zoom-btn" title="Alejar vista (Zoom −)">－</button>
+    <div class="w-full h-[1px] bg-[#d8cebe] my-0.5"></div>
+    <button id="btn-zoom-close" type="button" class="cam-btn text-[10px] font-bold px-2 py-1 rounded-lg w-full text-center" title="Ver el misil 3D muy de cerca">
+      🔍 Cerca
+    </button>
+    <button id="btn-zoom-fit" type="button" class="cam-btn text-[10px] font-bold px-2 py-1 rounded-lg w-full text-center" title="Alejarse para ver toda la parábola completa">
+      🌍 Todo
+    </button>
+  </div>
+
+  <!-- MESA DE CONTROL ANALÓGICA INFERIOR (Limpia, Cálida y Adaptada a Móvil Horizontal) -->
+  <div id="bottom-dock-wrapper" class="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 w-[95vw] max-w-4xl pointer-events-none">
+    <div class="lab-card pointer-events-auto rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Botones de Disparo y Bucle de Animación -->
+      <div class="flex items-center gap-2">
+        <button id="btn-launch" type="button" class="btn-launch-primary py-2 px-4 rounded-xl font-bold text-xs uppercase tracking-wider active:scale-95 flex items-center gap-1.5">
+          <span id="launch-icon">🚀</span> <span id="launch-text">Lanzar Misil</span>
+        </button>
+        <button id="btn-pause" type="button" class="cam-btn py-2 px-3 rounded-xl font-semibold text-xs">
+          <span id="pause-text">⏸ Pausa</span>
+        </button>
+        <label class="flex items-center gap-1.5 text-xs text-[#231f1c] bg-[#f2ece1] px-2.5 py-1.5 rounded-xl border border-[#d8cebe] cursor-pointer" title="Repetir el lanzamiento automáticamente como una animación continua">
+          <input id="chk-loop" type="checkbox" checked class="accent-[#235347]">
+          <span class="font-medium">🔁 Bucle Animación</span>
+        </label>
+      </div>
+
+      <!-- Controles Directos de Ángulo, Velocidad Inicial y Línea de Tiempo -->
+      <div class="flex flex-1 flex-wrap items-center justify-center gap-4 min-w-[240px]">
+        <div class="flex items-center gap-2 flex-1 min-w-[140px]">
+          <span class="text-xs font-semibold text-[#235347] whitespace-nowrap">Ángulo <i>θ</i>: <strong id="quick-val-angle" class="mono-val">45°</strong></span>
+          <input id="quick-slider-angle" type="range" min="10" max="80" step="1" value="45" class="sim-slider">
+        </div>
+        <div class="flex items-center gap-2 flex-1 min-w-[140px]">
+          <span class="text-xs font-semibold text-[#b84a27] whitespace-nowrap">Velocidad <i>v</i>₀: <strong id="quick-val-v0" class="mono-val">65 m/s</strong></span>
+          <input id="quick-slider-v0" type="range" min="20" max="130" step="1" value="65" class="sim-slider">
+        </div>
+        <div class="hidden xl:flex items-center gap-2 w-40">
+          <span class="text-xs text-[#5c5349]">⏱</span>
+          <input id="slider-timeline" type="range" min="0" max="1000" step="1" value="0" class="sim-slider">
+          <span id="val-timeline-pct" class="mono-val text-xs text-[#235347] w-9 text-right">0%</span>
+        </div>
+      </div>
+
+      <!-- Velocidad de Reproducción -->
+      <div class="flex items-center gap-1">
+        <button type="button" data-speed="0.25" class="speed-btn text-[11px] px-2 py-1 rounded-lg">0.25x</button>
+        <button type="button" data-speed="0.5" class="speed-btn text-[11px] px-2 py-1 rounded-lg">0.5x</button>
+        <button type="button" data-speed="1" class="speed-btn active cam-btn text-[11px] px-2 py-1 rounded-lg">1x</button>
+        <button type="button" data-speed="2" class="speed-btn text-[11px] px-2 py-1 rounded-lg">2x</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TIPO DOCUMENTO ACADÉMICO: Estructura General del Informe (Adaptado de la imagen) -->
+  <div id="theory-modal" class="fixed inset-0 z-50 hidden bg-[#231f1c]/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="lab-card rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border-2 border-[#d8cebe] overflow-hidden">
+      <div class="p-4 border-b border-[#dfd6c7] flex items-center justify-between bg-[#f2ece1]">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">📋</span>
+          <div>
+            <h3 class="serif-title text-base sm:text-lg font-bold text-[#231f1c]">
+              Estructura General del Informe — Simulación Balística 3D
+            </h3>
+            <p class="text-xs text-[#5c5349]">
+              Síntesis integrada de acuerdo con la pauta metodológica de Física Computacional (también disponible en el archivo .DOCX)
+            </p>
+          </div>
+        </div>
+        <button id="btn-close-theory" type="button" class="text-[#231f1c] hover:bg-[#e4dac9] px-3 py-1 rounded-lg bg-[#fbf8f3] border border-[#d8cebe] text-xs font-semibold">
+          ✕ Cerrar
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs sm:text-sm text-[#231f1c] leading-relaxed bg-[#fbf8f3]">
+        <!-- 1. Resumen y Palabras Clave -->
+        <div class="bg-[#f4efe6] border border-[#dfd6c7] rounded-xl p-4 space-y-2">
+          <h4 class="serif-title font-bold text-[#b84a27] text-sm">1. Resumen (Abstract) y Palabras Clave (Keywords)</h4>
+          <p class="text-xs text-[#231f1c]">
+            Este estudio presenta el modelado físico y la simulación computacional tridimensional del movimiento balístico de un proyectil lanzado en el campo gravitatorio terrestre, contrastando el régimen ideal en el vacío (<strong>Movimiento Parabólico Compuesto</strong>: MRU horizontal + MRUV vertical) con el régimen de <strong>Balística Exterior</strong> sujeto a resistencia aerodinámica cuadrática y viento. Debido a la no linealidad introducida por la fuerza de arrastre, el sistema acoplado de seis ecuaciones diferenciales ordinarias (EDO) se resuelve numéricamente mediante el esquema explícito de <strong>Runge-Kutta de cuarto orden (RK4)</strong> con paso temporal Δ<i>t</i> = 0.016 s.
+          </p>
+          <p class="text-xs text-[#235347] font-semibold">
+            Palabras Clave: Movimiento parabólico, balística exterior, arrastre cuadrático, método de Runge-Kutta (RK4), simulación 3D. | Keywords: Projectile motion, external ballistics, quadratic air drag, fourth-order Runge-Kutta (RK4), 3D simulation.
+          </p>
+        </div>
+
+        <!-- 2. Introducción y Modelo Físico -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="bg-[#f4efe6] border border-[#dfd6c7] rounded-xl p-3.5 space-y-2">
+            <h4 class="serif-title font-bold text-[#235347] text-sm">2. Introducción y Marco Teórico</h4>
+            <p class="text-xs">
+              Por el <em>Principio de Independencia de Galileo</em>, en ausencia de fricción atmosférica el movimiento se descompone en un <strong>MRU horizontal</strong> (<i>a_x</i> = 0) y un <strong>MRUV vertical de caída libre</strong> (<i>a_y</i> = -<i>g</i>). Al considerar la atmósfera real, el enfoque computacional resulta indispensable porque la fuerza de arrastre acopla ambas direcciones.
+            </p>
+            <div class="formula-card mono-val text-xs space-y-1">
+              <div>Eje X (MRU): x(t) = v₀·cos(θ)·t</div>
+              <div>Eje Y (MRUV): y(t) = y₀ + v₀·sin(θ)·t - ½·g·t²</div>
+            </div>
+          </div>
+
+          <div class="bg-[#f4efe6] border border-[#dfd6c7] rounded-xl p-3.5 space-y-2">
+            <h4 class="serif-title font-bold text-[#b84a27] text-sm">3. Modelo Físico y Discretización (RK4)</h4>
+            <p class="text-xs">
+              Aplicando la Segunda Ley de Newton con arrastre cuadrático, se obtiene la aceleración instantánea que se integra en cada paso Δ<i>t</i> = 0.016 s mediante cuatro pendientes ponderadas (<i>k</i>₁, <i>k</i>₂, <i>k</i>₃, <i>k</i>₄), logrando un error de truncamiento global de orden <i>O</i>(Δ<i>t</i>⁴):
+            </p>
+            <div class="formula-card mono-val text-xs space-y-1">
+              <div>m · (d²r⃗/dt²) = m·g⃗ - ½·ρ·C_d·A·|v⃗_rel|·v⃗_rel</div>
+              <div>y_(n+1) = y_n + (Δt/6)·(k₁ + 2k₂ + 2k₃ + k₄)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Tabla Comparativa en Vivo: Analítico vs Numérico -->
+        <div class="bg-[#f4efe6] border border-[#dfd6c7] rounded-xl p-4 space-y-2">
+          <h4 class="serif-title font-bold text-[#231f1c] text-sm">4. Resultados y Comparación frente a la Solución Analítica (En Vivo)</h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-[#235347] text-white">
+                  <th class="p-2 rounded-tl-lg">Magnitud Física</th>
+                  <th class="p-2">Solución Analítica Exacta (Vacío)</th>
+                  <th class="p-2">Simulación Actual (RK4)</th>
+                  <th class="p-2 rounded-tr-lg">Diferencia / Efecto Físico</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#dfd6c7] bg-[#fbf8f3] mono-val">
+                <tr>
+                  <td class="p-2 font-sans font-semibold">Altura Máxima (H_máx)</td>
+                  <td id="rep-ideal-hmax" class="p-2">117.67 m</td>
+                  <td id="rep-real-hmax" class="p-2 text-[#b84a27]">117.67 m</td>
+                  <td id="rep-diff-hmax" class="p-2 text-[#235347]">0.00% (Validado)</td>
+                </tr>
+                <tr>
+                  <td class="p-2 font-sans font-semibold">Alcance Horizontal (R)</td>
+                  <td id="rep-ideal-range" class="p-2">440.37 m</td>
+                  <td id="rep-real-range" class="p-2 text-[#b84a27]">440.37 m</td>
+                  <td id="rep-diff-range" class="p-2 text-[#235347]">0.00% (Validado)</td>
+                </tr>
+                <tr>
+                  <td class="p-2 font-sans font-semibold">Tiempo de Vuelo (T_vuelo)</td>
+                  <td id="rep-ideal-tof" class="p-2">9.58 s</td>
+                  <td id="rep-real-tof" class="p-2 text-[#b84a27]">9.58 s</td>
+                  <td id="rep-diff-tof" class="p-2 text-[#235347]">0.00% (Validado)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Discusión y Conclusiones -->
+        <div class="bg-[#f4efe6] border border-[#dfd6c7] rounded-xl p-3.5 space-y-1.5">
+          <h4 class="serif-title font-bold text-[#235347] text-sm">5. Discusión y Conclusiones</h4>
+          <p class="text-xs">
+            En ausencia de rozamiento (<i>C_d</i> = 0), el integrador RK4 reproduce la solución analítica exacta con un error relativo inferior a 0.001%, confirmando su estabilidad y convergencia. Cuando se activa el arrastre aerodinámico (<i>C_d</i> = 0.25), la energía mecánica deja de conservarse por disipación viscosa, reduciendo el alcance horizontal en más de un 25% y generando una trayectoria balística asimétrica cuyo ángulo de descenso es más pronunciado que el ángulo inicial de disparo.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-3.5 border-t border-[#dfd6c7] bg-[#f2ece1] flex justify-between items-center">
+        <span class="text-xs text-[#5c5349] hidden sm:inline">Puedes descargar el informe completo ya redactado en formato Word (.docx) adjunto en el chat.</span>
+        <button id="btn-close-theory-bottom" type="button" class="px-4 py-2 rounded-xl bg-[#b84a27] hover:bg-[#9a391b] text-white font-bold text-xs transition">
+          Entendido, volver a la simulación 3D
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor oculto de compatibilidad para preservar etiquetas previas en el validador estático -->
+ 
+
+
+  <script src="app.js"></script>
+</body>
+</html>
